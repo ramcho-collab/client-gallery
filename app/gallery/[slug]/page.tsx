@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { Suspense, useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface PhotoItem {
@@ -8,115 +8,130 @@ interface PhotoItem {
   url: string;
 }
 
-export default function ClientGalleryPage({ params }: { params: Promise<{ slug: string }> }) {
+function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoItem | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
     async function loadPhotos() {
-      const { data, error } = await supabase.storage.from('galleries').list(slug, {
-        limit: 200,
-        sortBy: { column: 'created_at', order: 'desc' },
+      setLoading(true);
+      setErrorMsg(null);
+
+      const folder = decodeURIComponent(slug);
+      const { data, error } = await supabase.storage
+        .from('galleries')
+        .list(folder, { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+
+      if (!active) return;
+
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+        return;
+      }
+
+      const files = (data ?? []).filter((item) => item.name && !item.name.startsWith('.'));
+      const items: PhotoItem[] = files.map((file) => {
+        const path = `${folder}/${file.name}`;
+        const { data: urlData } = supabase.storage.from('galleries').getPublicUrl(path);
+        return { name: file.name, url: urlData.publicUrl };
       });
 
-      if (!error && data) {
-        const items = data
-          .filter((file) => file.name !== '.emptyFolderPlaceholder')
-          .map((file) => {
-            const { data: urlData } = supabase.storage
-              .from('galleries')
-              .getPublicUrl(`${slug}/${file.name}`);
-            return { name: file.name, url: urlData.publicUrl };
-          });
-        setPhotos(items);
-      }
+      setPhotos(items);
       setLoading(false);
     }
+
     loadPhotos();
+    return () => {
+      active = false;
+    };
   }, [slug]);
 
-  async function handleDownload(photo: PhotoItem) {
+  const handleDownload = async (photo: PhotoItem) => {
     const response = await fetch(photo.url);
     const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = blobUrl;
+    link.href = objectUrl;
     link.download = photo.name;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-  }
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  const clientTitle = decodeURIComponent(slug).replace(/-/g, ' ');
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header className="border-b border-zinc-800 pb-4 flex items-center justify-between">
+    <main className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-10">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-zinc-400">Client Gallery</p>
-            <h1 className="text-2xl font-semibold capitalize">{slug.replace(/-/g, ' ')}</h1>
+            <p className="text-xs uppercase tracking-widest text-neutral-400">Client Gallery</p>
+            <h1 className="text-2xl md:text-3xl font-semibold capitalize mt-1">{clientTitle}</h1>
           </div>
-          <span className="text-xs text-zinc-400">{photos.length} photos</span>
+          <p className="text-sm text-neutral-400">
+            {loading ? 'Loading photos...' : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}`}
+          </p>
         </header>
 
-        {loading ? (
-          <p className="text-sm text-zinc-400">Loading photos...</p>
-        ) : photos.length === 0 ? (
-          <p className="text-sm text-zinc-400">No photos found in this gallery yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {photos.map((photo) => (
-              <div key={photo.name} className="group relative bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800">
+        {errorMsg && (
+          <div className="rounded-lg border border-red-800 bg-red-950/50 p-4 text-sm text-red-200">
+            Could not load gallery: {errorMsg}
+          </div>
+        )}
+
+        {!loading && !errorMsg && photos.length === 0 && (
+          <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-8 text-center text-neutral-400">
+            No photos found in this gallery yet.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {photos.map((photo) => (
+            <div
+              key={photo.name}
+              className="group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 flex flex-col"
+            >
+              <div className="aspect-[4/3] overflow-hidden bg-neutral-950">
                 <img
                   src={photo.url}
                   alt={photo.name}
-                  onClick={() => setSelectedPhoto(photo)}
-                  className="w-full h-64 object-cover cursor-pointer hover:opacity-90 transition"
+                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                 />
-                <div className="p-3 flex items-center justify-between bg-zinc-900">
-                  <span className="text-xs text-zinc-400 truncate max-w-[65%]">{photo.name}</span>
-                  <button
-                    onClick={() => handleDownload(photo)}
-                    className="px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-zinc-200 transition"
-                  >
-                    Download
-                  </button>
-                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {selectedPhoto && (
-        <div
-          onClick={() => setSelectedPhoto(null)}
-          className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4"
-        >
-          <img
-            src={selectedPhoto.url}
-            alt={selectedPhoto.name}
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-[80vh] max-w-full rounded-lg object-contain"
-          />
-          <div className="mt-4 flex gap-3" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => handleDownload(selectedPhoto)}
-              className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
-            >
-              Download Full Size
-            </button>
-            <button
-              onClick={() => setSelectedPhoto(null)}
-              className="px-4 py-2 rounded-lg bg-zinc-800 text-white text-sm"
-            >
-              Close
-            </button>
-          </div>
+              <div className="p-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-neutral-300 truncate">{photo.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDownload(photo)}
+                  className="shrink-0 rounded-md bg-white text-black px-3 py-1.5 text-xs font-medium hover:bg-neutral-200 transition"
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </main>
+  );
+}
+
+export default function ClientGalleryPage({ params }: { params: Promise<{ slug: string }> }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-neutral-950 text-neutral-100 p-10">
+          <p className="text-sm text-neutral-400">Loading gallery...</p>
+        </main>
+      }
+    >
+      <GalleryContent params={params} />
+    </Suspense>
   );
 }
