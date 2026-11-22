@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}"
+: "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
+: "${SUPABASE_URL:?Set SUPABASE_URL}"
+: "${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY}"
+
+echo "Supabase environment variables verified."
