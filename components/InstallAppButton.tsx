@@ -82,8 +82,12 @@ export default function InstallAppButton() {
       return;
     }
 
-    setShowHelp((prev) => !prev);
+    if (isIos) {
+      setShowHelp((prev) => !prev);
+    }
   };
+
+  const canShowButton = !isInstalled && (Boolean(deferredPrompt) || isIos);
 
   return (
     <>
@@ -95,20 +99,18 @@ export default function InstallAppButton() {
         />
       )}
 
-      {!isInstalled && (
+      {canShowButton && (
         <div className="mt-3 flex flex-col items-center">
           <button
             type="button"
             onClick={handleInstallClick}
             className="rounded-lg bg-white px-4 py-1.5 text-xs sm:text-sm font-semibold text-neutral-900 hover:bg-white/85 transition shadow-md"
           >
-            {isAdminRoute ? "Install Admin App" : "Install App"}
+            Install App
           </button>
-          {showHelp && (
+          {showHelp && isIos && (
             <p className="mt-2 text-xs text-white bg-neutral-900 border border-white/20 px-3 py-1.5 rounded-lg max-w-xs">
-              {isIos
-                ? 'Tap Share in Safari, then tap "Add to Home Screen".'
-                : 'Open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".'}
+              Tap Share in Safari, then tap &ldquo;Add to Home Screen&rdquo;.
             </p>
           )}
         </div>
