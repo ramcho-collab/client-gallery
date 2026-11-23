@@ -113,7 +113,12 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
 
   if (selectedPhoto) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col justify-between kenya-flag-bg text-white">
+      <div className="fixed inset-0 z-50 flex flex-col justify-between text-white">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 kenya-flag-bg pointer-events-none"
+        />
+
         <div className="w-full px-4 pt-4 pb-3">
           <div className="relative flex items-center justify-between gap-3 max-w-6xl mx-auto">
             <button
@@ -148,7 +153,8 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
           <img
             src={selectedPhoto.url}
             alt={selectedPhoto.name}
-            className="max-h-full max-w-full w-auto h-auto object-contain select-none rounded-lg brightness-100 contrast-105"
+            style={{ filter: 'brightness(1.08) contrast(1.04)' }}
+            className="max-h-full max-w-full w-auto h-auto object-contain select-none rounded-lg"
           />
         </div>
 
