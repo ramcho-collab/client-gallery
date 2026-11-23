@@ -80,7 +80,8 @@ export default function InstallAppButton() {
       {isAdminRoute && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 -z-[5] bg-neutral-950 pointer-events-none"
+          style={{ zIndex: -5 }}
+          className="fixed inset-0 bg-neutral-950 pointer-events-none"
         />
       )}
 
