@@ -219,10 +219,7 @@ export default function AdminPage() {
   if (authLoading) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white p-6">
-        <p className="text-sm text-zinc-400">Checking session...</p>
-      <AdminDashboard />
-
-      </main>
+        <p className="text-sm text-zinc-400">Checking session...</p></main>
     );
   }
 
@@ -438,6 +435,8 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+          <AdminDashboard />
+
     </main>
   );
 }
