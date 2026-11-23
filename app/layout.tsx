@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import InstallAppButton from "@/components/InstallAppButton";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,6 +17,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "254Oslo — Madness Lunar",
   description: "254Oslo — Madness Lunar Client Galleries",
+  appleWebApp: {
+    capable: true,
+    title: "254Oslo",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#006600",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -38,6 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Madness Lunar
             </div>
           </Link>
+          <InstallAppButton />
         </header>
         <div className="flex-1">{children}</div>
       </body>
