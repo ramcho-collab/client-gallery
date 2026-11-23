@@ -1,46 +1,63 @@
-import type { Metadata, Viewport } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
-import InstallAppButton from "@/components/InstallAppButton";
-import "./globals.css";
+import type { Metadata, Viewport } from 'next';
+import Link from 'next/link';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
+import InstallAppButton from '@/components/InstallAppButton';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
+const isAdminEnv = process.env.NEXT_PUBLIC_APP_MODE === 'admin';
+
 export const metadata: Metadata = {
-  title: "254Oslo — Madness Lunar",
-  description: "254Oslo — Madness Lunar Client Galleries",
+  title: isAdminEnv ? '254Oslo Admin — Madness Lunar' : '254Oslo — Madness Lunar',
+  description: isAdminEnv
+    ? '254Oslo — Madness Lunar Admin Studio'
+    : '254Oslo — Madness Lunar Client Gallery',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: "254Oslo",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: 'black-translucent',
+    title: isAdminEnv ? '254Oslo Admin' : '254Oslo',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#006600",
+  themeColor: isAdminEnv ? '#0a0a0a' : '#006600',
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const brandHref = isAdminEnv ? '/admin' : '/';
+
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col text-white relative">
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 -z-10 kenya-flag-bg pointer-events-none"
-        />
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+      >
+        {isAdminEnv ? (
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 -z-10 bg-neutral-950 pointer-events-none"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 -z-10 kenya-flag-bg pointer-events-none"
+          />
+        )}
         <header className="w-full text-center pt-8 pb-4 px-4">
-          <Link href="/" className="inline-block">
+          <Link href={brandHref} className="inline-block">
             <div className="text-3xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               254Oslo
             </div>
