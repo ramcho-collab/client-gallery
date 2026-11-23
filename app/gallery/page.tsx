@@ -98,15 +98,10 @@ export default function GalleriesIndexPage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-10">
+    <main className="min-h-screen bg-neutral-950 text-neutral-100 px-6 pb-10 pt-4 md:px-10">
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-neutral-400">Client Galleries</p>
-            <h1 className="text-2xl md:text-3xl font-semibold mt-1">Find Your Gallery</h1>
-          </div>
-
-          <form onSubmit={handleSearch} className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex justify-center">
+          <form onSubmit={handleSearch} className="flex items-center gap-2 w-full max-w-md">
             <input
               type="text"
               value={searchInput}
@@ -114,8 +109,8 @@ export default function GalleriesIndexPage() {
                 setSearchInput(e.target.value);
                 if (e.target.value === '') setActiveQuery('');
               }}
-              placeholder="Search client or event name..."
-              className="w-full md:w-72 rounded-lg bg-neutral-900 border border-neutral-800 px-3.5 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
+              placeholder="Search name..."
+              className="w-full rounded-lg bg-neutral-900 border border-neutral-800 px-3.5 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
             />
             <button
               type="submit"
@@ -133,21 +128,21 @@ export default function GalleriesIndexPage() {
               </button>
             )}
           </form>
-        </header>
+        </div>
 
-        {loading && <p className="text-sm text-neutral-400">Loading galleries...</p>}
+        {loading && <p className="text-sm text-neutral-400">Loading...</p>}
 
         {!loading && errorMsg && (
-          <p className="text-sm text-red-400">Could not load galleries: {errorMsg}</p>
+          <p className="text-sm text-red-400">Could not load: {errorMsg}</p>
         )}
 
         {!loading && !errorMsg && galleries.length === 0 && (
-          <p className="text-sm text-neutral-400">No client galleries available yet.</p>
+          <p className="text-sm text-neutral-400">No items available yet.</p>
         )}
 
         {!loading && !errorMsg && galleries.length > 0 && filteredGalleries.length === 0 && (
           <p className="text-sm text-neutral-400">
-            No galleries matching &ldquo;{activeQuery}&rdquo;.
+            No matches for &ldquo;{activeQuery}&rdquo;.
           </p>
         )}
 
