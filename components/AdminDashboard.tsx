@@ -455,4 +455,42 @@ export default function AdminDashboard() {
       </div>
     </section>
   );
+
+  useEffect(() => {
+    void loadDashboard();
+
+    const channel = supabase
+      .channel('admin-live-telemetry')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'client_visits' },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'photo_downloads' },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'blocked_clients' },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .subscribe();
+
+    const pollId = window.setInterval(() => {
+      void loadDashboard();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(pollId);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadDashboard]);
 }
