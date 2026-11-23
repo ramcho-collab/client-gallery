@@ -62,8 +62,6 @@ export default function InstallAppButton() {
     };
   }, []);
 
-  if (isInstalled) return null;
-
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
@@ -78,21 +76,32 @@ export default function InstallAppButton() {
   };
 
   return (
-    <div className="mt-3 flex flex-col items-center">
-      <button
-        type="button"
-        onClick={handleInstallClick}
-        className="rounded-lg bg-white px-4 py-1.5 text-xs sm:text-sm font-semibold text-neutral-900 hover:bg-white/85 transition shadow-md"
-      >
-        {isAdminRoute ? "Install Admin App" : "Install App"}
-      </button>
-      {showHelp && (
-        <p className="mt-2 text-xs text-white bg-black/75 px-3 py-1.5 rounded-lg max-w-xs">
-          {isIos
-            ? 'Tap the Share icon at the bottom of Safari, then tap "Add to Home Screen".'
-            : 'Open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".'}
-        </p>
+    <>
+      {isAdminRoute && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-[5] bg-neutral-950 pointer-events-none"
+        />
       )}
-    </div>
+
+      {!isInstalled && (
+        <div className="mt-3 flex flex-col items-center">
+          <button
+            type="button"
+            onClick={handleInstallClick}
+            className="rounded-lg bg-white px-4 py-1.5 text-xs sm:text-sm font-semibold text-neutral-900 hover:bg-white/85 transition shadow-md"
+          >
+            {isAdminRoute ? "Install Admin App" : "Install App"}
+          </button>
+          {showHelp && (
+            <p className="mt-2 text-xs text-white bg-black/75 px-3 py-1.5 rounded-lg max-w-xs">
+              {isIos
+                ? 'Tap the Share icon at the bottom of Safari, then tap "Add to Home Screen".'
+                : 'Open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".'}
+            </p>
+          )}
+        </div>
+      )}
+    </>
   );
 }
