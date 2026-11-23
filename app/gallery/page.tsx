@@ -8,7 +8,6 @@ type GalleryCard = {
   folder: string;
   title: string;
   coverUrl: string | null;
-  photoCount: number;
 };
 
 export default function GalleriesIndexPage() {
@@ -46,7 +45,7 @@ export default function GalleriesIndexPage() {
         folderNames.map(async (folder) => {
           const { data: files } = await supabase.storage
             .from('galleries')
-            .list(folder, { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+            .list(folder, { limit: 50, sortBy: { column: 'name', order: 'asc' } });
 
           const validFiles = (files ?? [])
             .filter((file) => !file.name.startsWith('.') && Boolean(file.id || file.name))
@@ -65,7 +64,6 @@ export default function GalleriesIndexPage() {
             folder,
             title: folder.replace(/-/g, ' '),
             coverUrl,
-            photoCount: validFiles.length,
           };
         })
       );
@@ -106,12 +104,6 @@ export default function GalleriesIndexPage() {
           <div>
             <p className="text-xs uppercase tracking-widest text-neutral-400">Client Galleries</p>
             <h1 className="text-2xl md:text-3xl font-semibold mt-1">Find Your Gallery</h1>
-            {!loading && !errorMsg && (
-              <p className="text-sm text-neutral-400 mt-1">
-                Showing {filteredGalleries.length} of {galleries.length}{' '}
-                {galleries.length === 1 ? 'gallery' : 'galleries'} (A–Z)
-              </p>
-            )}
           </div>
 
           <form onSubmit={handleSearch} className="flex items-center gap-2 w-full md:w-auto">
@@ -165,7 +157,7 @@ export default function GalleriesIndexPage() {
               <Link
                 key={gallery.folder}
                 href={`/gallery/${encodeURIComponent(gallery.folder)}`}
-                className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 hover:border-neutral-600 transition flex flex-col"
+                className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 hover:border-neutral-600 transition block"
               >
                 <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-950 flex items-center justify-center">
                   {gallery.coverUrl ? (
@@ -176,22 +168,14 @@ export default function GalleriesIndexPage() {
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <span className="text-xs text-neutral-500">No photos yet</span>
+                    <span className="text-xs text-neutral-500">No photo yet</span>
                   )}
                 </div>
 
-                <div className="p-4 flex items-center justify-between gap-2">
-                  <div>
-                    <h2 className="font-semibold capitalize text-base text-white group-hover:text-neutral-200">
-                      {gallery.title}
-                    </h2>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      {gallery.photoCount} {gallery.photoCount === 1 ? 'photo' : 'photos'}
-                    </p>
-                  </div>
-                  <span className="text-xs font-medium text-neutral-300 group-hover:text-white">
-                    Open &rarr;
-                  </span>
+                <div className="p-4">
+                  <h2 className="font-semibold capitalize text-base text-white group-hover:text-neutral-200">
+                    {gallery.title}
+                  </h2>
                 </div>
               </Link>
             ))}
