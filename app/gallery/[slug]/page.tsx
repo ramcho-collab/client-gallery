@@ -112,10 +112,10 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   const folderTitle = decodeURIComponent(slug).replace(/-/g, ' ');
 
   return (
-    <main className="min-h-full kenya-flag-bg text-white px-6 pb-10 pt-5 md:px-10">
+    <main className="min-h-full text-white px-6 pb-10 pt-5 md:px-10">
       <div className="max-w-6xl mx-auto">
         <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-xl md:text-2xl font-semibold capitalize bg-black/65 px-3.5 py-1.5 rounded-lg inline-block">
+          <h1 className="text-xl md:text-2xl font-semibold capitalize drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
             {folderTitle}
           </h1>
 
@@ -128,11 +128,11 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
                 if (e.target.value === '') setActiveSearch('');
               }}
               placeholder="Search photo..."
-              className="w-full md:w-64 rounded-lg bg-black/75 border border-white/25 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:border-white"
+              className="w-full md:w-64 rounded-lg bg-white/90 border border-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-600 focus:outline-none"
             />
             <button
               type="submit"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90 shrink-0"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-white/80 shrink-0"
             >
               Search
             </button>
@@ -140,7 +140,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="rounded-lg bg-black/75 border border-white/25 px-3 py-2 text-sm text-white hover:bg-black/90 shrink-0"
+                className="rounded-lg bg-white/25 border border-white/50 px-3 py-2 text-sm text-white hover:bg-white/35 shrink-0"
               >
                 Clear
               </button>
@@ -149,25 +149,25 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
         </header>
 
         {loading && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             Loading...
           </p>
         )}
 
         {!loading && errorMsg && (
-          <p className="text-sm text-red-200 bg-black/75 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white bg-red-700/85 inline-block px-3 py-1.5 rounded-lg">
             Could not load: {errorMsg}
           </p>
         )}
 
         {!loading && !errorMsg && photos.length === 0 && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             No photos found.
           </p>
         )}
 
         {!loading && !errorMsg && photos.length > 0 && filteredPhotos.length === 0 && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             No matches for &ldquo;{activeSearch}&rdquo;.
           </p>
         )}
@@ -179,7 +179,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
                 key={photo.name}
                 type="button"
                 onClick={() => setSelectedPhoto(photo)}
-                className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-white/20 bg-black/50 text-left focus:outline-none focus:ring-2 focus:ring-white"
+                className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border-2 border-white/70 bg-white/10 text-left focus:outline-none focus:ring-2 focus:ring-white"
               >
                 <img
                   src={photo.url}
@@ -199,23 +199,23 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
           onClick={() => setSelectedPhoto(null)}
         >
           <div
-            className="w-full px-4 pt-4 pb-3 bg-black/70 backdrop-blur-xs border-b border-white/15"
+            className="w-full px-4 pt-4 pb-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative flex items-center justify-between gap-3 max-w-6xl mx-auto">
               <button
                 type="button"
                 onClick={() => setSelectedPhoto(null)}
-                className="rounded-lg bg-white/15 px-3.5 py-2 text-sm font-medium text-white hover:bg-white/25 z-10"
+                className="rounded-lg bg-white/25 border border-white/60 px-3.5 py-2 text-sm font-medium text-white hover:bg-white/35 z-10"
               >
                 Close
               </button>
 
               <div className="flex-1 text-center">
-                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
+                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
                   254Oslo
                 </div>
-                <div className="text-xs sm:text-sm font-medium tracking-widest uppercase text-white/90">
+                <div className="text-xs sm:text-sm font-medium tracking-widest uppercase text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
                   Madness Lunar
                 </div>
               </div>
@@ -224,7 +224,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
                 type="button"
                 disabled={downloadingName === selectedPhoto.name}
                 onClick={() => handleDownload(selectedPhoto)}
-                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-60 z-10"
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-white/80 disabled:opacity-60 z-10"
               >
                 {downloadingName === selectedPhoto.name ? 'Downloading...' : 'Download'}
               </button>
@@ -241,10 +241,10 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
           </div>
 
           <div
-            className="w-full px-4 py-3 bg-black/70 backdrop-blur-xs border-t border-white/15 text-center"
+            className="w-full px-4 py-3 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm sm:text-base font-medium text-white truncate max-w-4xl mx-auto">
+            <p className="text-sm sm:text-base font-medium text-white truncate max-w-4xl mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               {selectedPhoto.name}
             </p>
           </div>
@@ -258,8 +258,8 @@ export default function ClientGalleryPage({ params }: { params: Promise<{ slug: 
   return (
     <Suspense
       fallback={
-        <main className="min-h-full kenya-flag-bg text-white p-10">
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+        <main className="min-h-full text-white p-10">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             Loading...
           </p>
         </main>

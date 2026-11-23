@@ -24,13 +24,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col kenya-flag-bg text-white">
-        <header className="w-full bg-black/55 backdrop-blur-xs text-center pt-8 pb-4 px-4 border-b border-white/15">
+      <body className="min-h-full flex flex-col text-white relative">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 kenya-flag-bg pointer-events-none"
+        />
+        <header className="w-full text-center pt-8 pb-4 px-4">
           <Link href="/" className="inline-block">
-            <div className="text-3xl md:text-5xl font-bold tracking-tight text-white drop-shadow">
+            <div className="text-3xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               254Oslo
             </div>
-            <div className="text-sm md:text-base font-medium tracking-widest uppercase text-white/90 mt-1 drop-shadow">
+            <div className="text-sm md:text-base font-medium tracking-widest uppercase text-white mt-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               Madness Lunar
             </div>
           </Link>

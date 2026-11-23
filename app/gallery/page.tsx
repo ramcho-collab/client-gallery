@@ -98,7 +98,7 @@ export default function GalleriesIndexPage() {
   };
 
   return (
-    <main className="min-h-full kenya-flag-bg text-white px-6 pb-10 pt-5 md:px-10">
+    <main className="min-h-full text-white px-6 pb-10 pt-5 md:px-10">
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex justify-center">
           <form onSubmit={handleSearch} className="flex items-center gap-2 w-full max-w-md">
@@ -110,11 +110,11 @@ export default function GalleriesIndexPage() {
                 if (e.target.value === '') setActiveQuery('');
               }}
               placeholder="Search name..."
-              className="w-full rounded-lg bg-black/75 border border-white/25 px-3.5 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:border-white"
+              className="w-full rounded-lg bg-white/90 border border-white px-3.5 py-2 text-sm text-neutral-900 placeholder:text-neutral-600 focus:outline-none"
             />
             <button
               type="submit"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90 shrink-0"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-white/80 shrink-0"
             >
               Search
             </button>
@@ -122,7 +122,7 @@ export default function GalleriesIndexPage() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="rounded-lg bg-black/75 border border-white/25 px-3 py-2 text-sm text-white hover:bg-black/90 shrink-0"
+                className="rounded-lg bg-white/25 border border-white/50 px-3 py-2 text-sm text-white hover:bg-white/35 shrink-0"
               >
                 Clear
               </button>
@@ -131,25 +131,25 @@ export default function GalleriesIndexPage() {
         </div>
 
         {loading && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             Loading...
           </p>
         )}
 
         {!loading && errorMsg && (
-          <p className="text-sm text-red-200 bg-black/75 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white bg-red-700/85 inline-block px-3 py-1.5 rounded-lg">
             Could not load: {errorMsg}
           </p>
         )}
 
         {!loading && !errorMsg && galleries.length === 0 && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             No items available yet.
           </p>
         )}
 
         {!loading && !errorMsg && galleries.length > 0 && filteredGalleries.length === 0 && (
-          <p className="text-sm text-white bg-black/60 inline-block px-3 py-1.5 rounded-lg">
+          <p className="text-sm text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             No matches for &ldquo;{activeQuery}&rdquo;.
           </p>
         )}
@@ -160,9 +160,9 @@ export default function GalleriesIndexPage() {
               <Link
                 key={gallery.folder}
                 href={`/gallery/${encodeURIComponent(gallery.folder)}`}
-                className="group overflow-hidden rounded-2xl border border-white/25 bg-black/70 backdrop-blur-xs hover:border-white transition block"
+                className="group overflow-hidden rounded-2xl border-2 border-white/70 bg-white/15 backdrop-blur-xs hover:border-white transition block"
               >
-                <div className="aspect-[4/3] w-full overflow-hidden bg-black/50 flex items-center justify-center">
+                <div className="aspect-[4/3] w-full overflow-hidden flex items-center justify-center">
                   {gallery.coverUrl ? (
                     <img
                       src={gallery.coverUrl}
@@ -171,12 +171,14 @@ export default function GalleriesIndexPage() {
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <span className="text-xs text-white/75">No photo yet</span>
+                    <span className="text-xs text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+                      No photo yet
+                    </span>
                   )}
                 </div>
 
                 <div className="p-4">
-                  <h2 className="font-semibold capitalize text-base text-white">
+                  <h2 className="font-semibold capitalize text-base text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
                     {gallery.title}
                   </h2>
                 </div>
