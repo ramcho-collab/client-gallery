@@ -44,7 +44,9 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
 
       const items: PhotoItem[] = (data ?? [])
         .filter((file) => !file.name.startsWith('.') && Boolean(file.id || file.name))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })
+        )
         .map((file) => {
           const path = `${folder}/${file.name}`;
           const { data: pub } = supabase.storage.from('galleries').getPublicUrl(path);
@@ -110,18 +112,11 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   const clientTitle = decodeURIComponent(slug).replace(/-/g, ' ');
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-10">
+    <main className="min-h-screen bg-neutral-950 text-neutral-100 px-6 pb-10 pt-4 md:px-10">
       <div className="max-w-6xl mx-auto">
         <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-neutral-400">Client Gallery</p>
-            <h1 className="text-2xl md:text-3xl font-semibold capitalize mt-1">{clientTitle}</h1>
-            {!loading && !errorMsg && (
-              <p className="text-sm text-neutral-400 mt-1">
-                Showing {filteredPhotos.length} of {photos.length}{' '}
-                {photos.length === 1 ? 'photo' : 'photos'} (A–Z)
-              </p>
-            )}
+            <h1 className="text-xl md:text-2xl font-semibold capitalize">{clientTitle}</h1>
           </div>
 
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full md:w-auto">
