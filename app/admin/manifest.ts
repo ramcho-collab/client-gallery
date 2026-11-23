@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/admin",
+    id: "254oslo-admin-app",
     name: "254Oslo Admin — Madness Lunar",
     short_name: "254Oslo Admin",
-    description: "254Oslo — Madness Lunar Gallery Admin",
+    description: "254Oslo — Madness Lunar Admin Studio",
     start_url: "/admin",
     scope: "/admin",
     display: "standalone",
