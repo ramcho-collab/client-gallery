@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type PhotoItem = {
@@ -13,6 +13,8 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoItem | null>(null);
   const [downloadingName, setDownloadingName] = useState<string | null>(null);
 
@@ -23,10 +25,13 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
       setLoading(true);
       setErrorMsg(null);
 
-      const folder = decodeURIComponent(slug);
+      const folder = decodeURIComponent(slug).trim();
       const { data, error } = await supabase.storage
         .from('galleries')
-        .list(folder, { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+        .list(folder, {
+          limit: 500,
+          sortBy: { column: 'name', order: 'asc' },
+        });
 
       if (!active) return;
 
@@ -39,6 +44,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
 
       const items: PhotoItem[] = (data ?? [])
         .filter((file) => !file.name.startsWith('.') && Boolean(file.id || file.name))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
         .map((file) => {
           const path = `${folder}/${file.name}`;
           const { data: pub } = supabase.storage.from('galleries').getPublicUrl(path);
@@ -67,6 +73,22 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selectedPhoto]);
 
+  const filteredPhotos = useMemo(() => {
+    const term = activeSearch.trim().toLowerCase();
+    if (!term) return photos;
+    return photos.filter((photo) => photo.name.toLowerCase().includes(term));
+  }, [photos, activeSearch]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setActiveSearch(searchQuery);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
+  };
+
   const handleDownload = async (photo: PhotoItem) => {
     try {
       setDownloadingName(photo.name);
@@ -90,16 +112,45 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-10">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-neutral-400">Client Gallery</p>
             <h1 className="text-2xl md:text-3xl font-semibold capitalize mt-1">{clientTitle}</h1>
+            {!loading && !errorMsg && (
+              <p className="text-sm text-neutral-400 mt-1">
+                Showing {filteredPhotos.length} of {photos.length}{' '}
+                {photos.length === 1 ? 'photo' : 'photos'} (A–Z)
+              </p>
+            )}
           </div>
-          {!loading && !errorMsg && (
-            <p className="text-sm text-neutral-400">
-              {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
-            </p>
-          )}
+
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full md:w-auto">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value === '') setActiveSearch('');
+              }}
+              placeholder="Search photo filename..."
+              className="w-full md:w-64 rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200 shrink-0"
+            >
+              Search
+            </button>
+            {activeSearch && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-700 shrink-0"
+              >
+                Clear
+              </button>
+            )}
+          </form>
         </header>
 
         {loading && <p className="text-sm text-neutral-400">Loading photos...</p>}
@@ -109,12 +160,18 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
         )}
 
         {!loading && !errorMsg && photos.length === 0 && (
-          <p className="text-sm text-neutral-400">No photos in this gallery yet.</p>
+          <p className="text-sm text-neutral-400">No photos found in this gallery.</p>
         )}
 
-        {!loading && !errorMsg && photos.length > 0 && (
+        {!loading && !errorMsg && photos.length > 0 && filteredPhotos.length === 0 && (
+          <p className="text-sm text-neutral-400">
+            No photos matching &ldquo;{activeSearch}&rdquo;.
+          </p>
+        )}
+
+        {!loading && !errorMsg && filteredPhotos.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {photos.map((photo) => (
+            {filteredPhotos.map((photo) => (
               <button
                 key={photo.name}
                 type="button"
