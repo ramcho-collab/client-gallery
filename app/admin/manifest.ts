@@ -2,14 +2,15 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/admin",
     name: "254Oslo Admin — Madness Lunar",
     short_name: "254Oslo Admin",
     description: "254Oslo — Madness Lunar Gallery Admin",
     start_url: "/admin",
-    scope: "/",
+    scope: "/admin",
     display: "standalone",
-    background_color: "#006600",
-    theme_color: "#006600",
+    background_color: "#0a0a0a",
+    theme_color: "#0a0a0a",
     icons: [
       {
         src: "/icon-192.png",

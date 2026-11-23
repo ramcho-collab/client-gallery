@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -8,26 +9,35 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function InstallAppButton() {
+  const pathname = usePathname();
+  const prevAdminRef = useRef<boolean | null>(null);
+
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
-  const [isAdminRoute, setIsAdminRoute] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  const isAdminRoute = pathname?.startsWith("/admin") ?? false;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const adminPath = window.location.pathname.startsWith("/admin");
-    setIsAdminRoute(adminPath);
+    if (prevAdminRef.current !== null && prevAdminRef.current !== isAdminRoute) {
+      window.location.assign(pathname || "/");
+      return;
+    }
+    prevAdminRef.current = isAdminRoute;
 
-    const manifestHref = adminPath ? "/admin/manifest.webmanifest" : "/manifest.webmanifest";
+    const manifestHref = isAdminRoute ? "/admin/manifest.webmanifest" : "/manifest.webmanifest";
     let linkEl = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
     if (!linkEl) {
       linkEl = document.createElement("link");
       linkEl.rel = "manifest";
       document.head.appendChild(linkEl);
     }
-    linkEl.href = manifestHref;
+    if (linkEl.href !== `${window.location.origin}${manifestHref}`) {
+      linkEl.href = manifestHref;
+    }
 
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -60,7 +70,7 @@ export default function InstallAppButton() {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onAppInstalled);
     };
-  }, []);
+  }, [isAdminRoute, pathname]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -95,9 +105,9 @@ export default function InstallAppButton() {
             {isAdminRoute ? "Install Admin App" : "Install App"}
           </button>
           {showHelp && (
-            <p className="mt-2 text-xs text-white bg-black/75 px-3 py-1.5 rounded-lg max-w-xs">
+            <p className="mt-2 text-xs text-white bg-neutral-900 border border-white/20 px-3 py-1.5 rounded-lg max-w-xs">
               {isIos
-                ? 'Tap the Share icon at the bottom of Safari, then tap "Add to Home Screen".'
+                ? 'Tap Share in Safari, then tap "Add to Home Screen".'
                 : 'Open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".'}
             </p>
           )}
