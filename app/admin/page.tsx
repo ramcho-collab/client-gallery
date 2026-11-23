@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import AdminDashboard from '@/components/AdminDashboard';
+
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -218,6 +220,8 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen bg-neutral-950 text-white p-6">
         <p className="text-sm text-zinc-400">Checking session...</p>
+      <AdminDashboard />
+
       </main>
     );
   }

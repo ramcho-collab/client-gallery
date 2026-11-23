@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, use, useEffect, useMemo, useState } from 'react';
+import { Suspense, use, useEffect, useMemo, useState, useCallback } from 'react';
+import { isClientBlocked, logPhotoDownload, startVisitTracker } from '@/lib/clientTelemetry';
 import { supabase } from '@/lib/supabase';
 
 type PhotoItem = {
@@ -17,6 +18,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
   const [activeSearch, setActiveSearch] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoItem | null>(null);
   const [downloadingName, setDownloadingName] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -91,9 +93,23 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
     setActiveSearch('');
   };
 
+  useEffect(() => {
+    if (!slug) return;
+    let active = true;
+    void isClientBlocked().then((blocked) => {
+      if (active) setIsBlocked(blocked);
+    });
+    const stopTracking = startVisitTracker({ gallerySlug: decodeURIComponent(slug).trim() });
+    return () => {
+      active = false;
+      stopTracking();
+    };
+  }, [slug]);
+
   const handleDownload = async (photo: PhotoItem) => {
     try {
       setDownloadingName(photo.name);
+    void logPhotoDownload({ photoName: photo.name, gallerySlug: slug ? decodeURIComponent(slug).trim() : undefined });
       const response = await fetch(photo.url);
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -166,6 +182,17 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
       </div>
     );
   }
+  if (isBlocked) {
+    return (
+      <main className="min-h-[60vh] flex items-center justify-center px-4 text-white">
+        <div className="max-w-md w-full rounded-xl bg-neutral-950/90 border border-neutral-800 p-6 text-center space-y-2">
+          <h2 className="text-lg font-bold">Access Paused</h2>
+          <p className="text-sm text-neutral-400">Your access to this client gallery has been paused by the studio admin.</p>
+        </div>
+      </main>
+    );
+  }
+
 
   return (
     <main className="min-h-full text-white px-6 pb-10 pt-5 md:px-10">
