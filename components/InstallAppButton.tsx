@@ -11,10 +11,23 @@ export default function InstallAppButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [isAdminRoute, setIsAdminRoute] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const adminPath = window.location.pathname.startsWith("/admin");
+    setIsAdminRoute(adminPath);
+
+    const manifestHref = adminPath ? "/admin/manifest.webmanifest" : "/manifest.webmanifest";
+    let linkEl = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    if (!linkEl) {
+      linkEl = document.createElement("link");
+      linkEl.rel = "manifest";
+      document.head.appendChild(linkEl);
+    }
+    linkEl.href = manifestHref;
 
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -71,7 +84,7 @@ export default function InstallAppButton() {
         onClick={handleInstallClick}
         className="rounded-lg bg-white px-4 py-1.5 text-xs sm:text-sm font-semibold text-neutral-900 hover:bg-white/85 transition shadow-md"
       >
-        Install App
+        {isAdminRoute ? "Install Admin App" : "Install App"}
       </button>
       {showHelp && (
         <p className="mt-2 text-xs text-white bg-black/75 px-3 py-1.5 rounded-lg max-w-xs">
