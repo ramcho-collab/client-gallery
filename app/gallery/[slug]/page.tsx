@@ -185,7 +185,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
                   src={photo.url}
                   alt={photo.name}
                   loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="h-full w-full object-cover brightness-100 transition-transform duration-300 group-hover:scale-105"
                 />
               </button>
             ))}
@@ -195,7 +195,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
 
       {selectedPhoto && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-between kenya-flag-bg"
+          className="fixed inset-0 z-50 flex flex-col justify-between bg-transparent"
           onClick={() => setSelectedPhoto(null)}
         >
           <div
@@ -236,7 +236,7 @@ function GalleryContent({ params }: { params: Promise<{ slug: string }> }) {
               src={selectedPhoto.url}
               alt={selectedPhoto.name}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full w-auto h-auto object-contain select-none rounded-lg shadow-2xl"
+              className="max-h-full max-w-full w-auto h-auto object-contain select-none rounded-lg brightness-100 contrast-105"
             />
           </div>
 
