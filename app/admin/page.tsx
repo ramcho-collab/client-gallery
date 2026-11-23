@@ -216,7 +216,7 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen bg-zinc-950 text-white p-6">
+      <main className="min-h-screen kenya-flag-bg text-white p-6">
         <p className="text-sm text-zinc-400">Checking session...</p>
       </main>
     );
@@ -224,7 +224,7 @@ export default function AdminPage() {
 
   if (!session) {
     return (
-      <main className="min-h-screen bg-zinc-950 text-white p-6 flex items-center justify-center">
+      <main className="min-h-screen kenya-flag-bg text-white p-6 flex items-center justify-center">
         <form
           onSubmit={handleLogin}
           className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4"
@@ -238,7 +238,7 @@ export default function AdminPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-sm bg-zinc-950 px-3 py-2 rounded border border-zinc-700"
+              className="w-full text-sm kenya-flag-bg px-3 py-2 rounded border border-zinc-700"
             />
           </div>
           <div>
@@ -248,7 +248,7 @@ export default function AdminPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-sm bg-zinc-950 px-3 py-2 rounded border border-zinc-700"
+              className="w-full text-sm kenya-flag-bg px-3 py-2 rounded border border-zinc-700"
             />
           </div>
           <button
@@ -264,7 +264,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white p-6">
+    <main className="min-h-screen kenya-flag-bg text-white p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Upload Client Work</h1>
@@ -288,7 +288,7 @@ export default function AdminPage() {
               placeholder="e.g. Sarah Wedding"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="w-full text-sm bg-zinc-950 px-3 py-2 rounded border border-zinc-700"
+              className="w-full text-sm kenya-flag-bg px-3 py-2 rounded border border-zinc-700"
             />
             {activeSlug && (
               <p className="text-[11px] text-zinc-400 mt-1">
@@ -327,7 +327,7 @@ export default function AdminPage() {
                   type="text"
                   readOnly
                   value={shareLink}
-                  className="w-full text-xs bg-zinc-950 px-2.5 py-2 rounded border border-zinc-700"
+                  className="w-full text-xs kenya-flag-bg px-2.5 py-2 rounded border border-zinc-700"
                 />
                 <button
                   type="button"
@@ -384,7 +384,7 @@ export default function AdminPage() {
                     className={`px-2.5 py-1 rounded text-xs border ${
                       isSelected
                         ? 'bg-white text-black border-white font-medium'
-                        : 'bg-zinc-950 text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                        : 'kenya-flag-bg text-zinc-300 border-zinc-700 hover:border-zinc-500'
                     }`}
                   >
                     {folderName}
@@ -405,7 +405,7 @@ export default function AdminPage() {
               {photos.map((photo) => (
                 <div
                   key={photo.name}
-                  className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex flex-col"
+                  className="kenya-flag-bg border border-zinc-800 rounded-xl overflow-hidden flex flex-col"
                 >
                   <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-900">
                     <img
