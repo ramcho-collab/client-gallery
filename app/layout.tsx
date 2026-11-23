@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import InstallAppButton from '@/components/InstallAppButton';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -65,7 +64,6 @@ export default function RootLayout({
               Madness Lunar
             </div>
           </Link>
-          <InstallAppButton />
         </header>
         <div className="flex-1">{children}</div>
       </body>
