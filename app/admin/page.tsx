@@ -1,8 +1,7 @@
 'use client';
 
-import AdminDashboard from '@/components/AdminDashboard';
 
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -435,8 +434,321 @@ export default function AdminPage() {
           )}
         </section>
       </div>
-          <AdminDashboard />
-
+          
+      <AdminChromePictureTool />
     </main>
   );
 }
+
+
+interface AdminWebLink {
+  id: string;
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+interface AdminDetectedPicture {
+  id: string;
+  src: string;
+  previewSrc: string;
+  alt: string;
+  width: number;
+  height: number;
+  filename: string;
+  sourceLabel?: string;
+}
+
+function getAdminSafeFilename(rawSrc: string, fallbackTitle: string, index: number): string {
+  try {
+    const parsed = new URL(rawSrc, window.location.origin);
+    const base = decodeURIComponent(parsed.pathname.split("/").pop()?.split("?")[0] || "");
+    if (base && /\.(jpe?g|png|webp|gif|avif|bmp|svg)$/i.test(base)) {
+      return base.replace(/[^a-zA-Z0-9._-]/g, "_");
+    }
+  } catch {
+    // ignore URL parse error
+  }
+  const cleanTitle = fallbackTitle.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 48);
+  if (cleanTitle) {
+    return /\.(jpe?g|png|webp|gif)$/i.test(cleanTitle) ? cleanTitle : `${cleanTitle}.jpg`;
+  }
+  return `picture-${index + 1}.jpg`;
+}
+
+function AdminChromePictureTool() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [pictures, setPictures] = useState<AdminDetectedPicture[]>([]);
+  const [webLinks, setWebLinks] = useState<AdminWebLink[]>([]);
+  const [providerLabel, setProviderLabel] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  const handleWebSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    setSearching(true);
+    setErrorMsg(null);
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch(`/api/admin/web-search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Search failed (${res.status})`);
+      }
+
+      const items = Array.isArray(data.results) ? data.results : [];
+      const links = Array.isArray(data.webResults) ? data.webResults : [];
+      setProviderLabel(typeof data.provider === "string" ? data.provider : "Web");
+
+      const mapped: AdminDetectedPicture[] = items.map(
+        (item: {
+          id: string;
+          title: string;
+          imageUrl: string;
+          thumbnailUrl: string;
+          width: number;
+          height: number;
+        }, idx: number) => ({
+          id: item.id || `web-${idx}`,
+          src: item.imageUrl,
+          previewSrc: item.thumbnailUrl || item.imageUrl,
+          alt: item.title || q,
+          width: item.width || 0,
+          height: item.height || 0,
+          filename: getAdminSafeFilename(item.imageUrl, item.title || q, idx),
+          sourceLabel: typeof data.provider === "string" ? data.provider : "Web",
+        })
+      );
+
+      setPictures(mapped);
+      setWebLinks(links);
+      setHasSearched(true);
+      setStatusMsg(
+        mapped.length > 0 || links.length > 0
+          ? `Found ${mapped.length} picture${mapped.length === 1 ? "" : "s"} and ${links.length} web result${links.length === 1 ? "" : "s"} for "${q}".`
+          : `No results found for "${q}". Try another search term.`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Search failed.";
+      setErrorMsg(msg);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const detectPagePictures = useCallback(() => {
+    setErrorMsg(null);
+    setStatusMsg(null);
+
+    const imgs = Array.from(document.querySelectorAll("img"));
+    const seen = new Set<string>();
+    const detected: AdminDetectedPicture[] = [];
+
+    imgs.forEach((img, idx) => {
+      const src = (img.currentSrc || img.src || "").trim();
+      if (!src || src.startsWith("data:image/svg+xml")) return;
+      if (seen.has(src)) return;
+      seen.add(src);
+
+      const width = img.naturalWidth || Math.round(img.getBoundingClientRect().width) || 0;
+      const height = img.naturalHeight || Math.round(img.getBoundingClientRect().height) || 0;
+
+      detected.push({
+        id: `page-${idx}-${src.slice(-20)}`,
+        src,
+        previewSrc: src,
+        alt: img.alt?.trim() || `Page picture ${detected.length + 1}`,
+        width,
+        height,
+        filename: getAdminSafeFilename(src, img.alt || "", detected.length),
+        sourceLabel: "Detected on /admin",
+      });
+    });
+
+    setPictures(detected);
+    setWebLinks([]);
+    setHasSearched(true);
+    setStatusMsg(
+      detected.length > 0
+        ? `Detected ${detected.length} picture${detected.length === 1 ? "" : "s"} on /admin.`
+        : "No pictures detected on /admin yet. Use the Search bar above to find pictures."
+    );
+  }, []);
+
+  const handleDownload = async (pic: AdminDetectedPicture) => {
+    setDownloadingId(pic.id);
+    setErrorMsg(null);
+
+    try {
+      const proxyUrl = `/api/admin/download-image?url=${encodeURIComponent(pic.src)}&filename=${encodeURIComponent(pic.filename)}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = pic.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      setStatusMsg(`Downloaded ${pic.filename}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Download failed";
+      setErrorMsg(`Could not download ${pic.filename}: ${msg}`);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  return (
+    <section className="max-w-6xl mx-auto mt-8 space-y-5">
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-800/90 px-4 py-2.5 border-b border-neutral-700/70">
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-red-500/80 inline-block" />
+            <span className="h-3 w-3 rounded-full bg-amber-400/80 inline-block" />
+            <span className="h-3 w-3 rounded-full bg-emerald-500/80 inline-block" />
+            <span className="ml-2 text-xs sm:text-sm font-medium text-neutral-200">
+              Web Search & Picture Detector (/admin)
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={detectPagePictures}
+            className="px-3.5 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-xs sm:text-sm font-medium transition cursor-pointer"
+          >
+            Detect Page Pictures
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleWebSearch}
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-neutral-900 p-3"
+        >
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search for pictures or things..."
+            aria-label="Search for pictures or things"
+            className="flex-1 rounded-lg bg-neutral-950 border border-neutral-700 px-3.5 py-2 text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
+          />
+          <button
+            type="submit"
+            disabled={searching}
+            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium transition cursor-pointer"
+          >
+            {searching ? "Searching..." : "Search"}
+          </button>
+        </form>
+      </div>
+
+      {errorMsg && (
+        <div className="rounded-lg border border-red-500/40 bg-red-950/50 px-4 py-3 text-sm text-red-200">
+          {errorMsg}
+        </div>
+      )}
+
+      {statusMsg && !errorMsg && (
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-300">
+          {statusMsg}
+        </div>
+      )}
+
+      {hasSearched && pictures.length === 0 && webLinks.length === 0 && !errorMsg && (
+        <div className="rounded-xl border border-dashed border-neutral-800 p-8 text-center text-sm text-neutral-400">
+          No results found yet. Type what you are looking for in the Search bar and click Search.
+        </div>
+      )}
+
+      {webLinks.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-neutral-200">
+            Web Results ({webLinks.length}){providerLabel ? ` — ${providerLabel}` : ""}
+          </h2>
+          <div className="space-y-2.5">
+            {webLinks.map((link) => (
+              <div
+                key={link.id}
+                className="rounded-xl border border-neutral-800 bg-neutral-900 p-4 space-y-1"
+              >
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-semibold text-blue-400 hover:underline break-all"
+                >
+                  {link.title}
+                </a>
+                <p className="text-xs text-neutral-400 break-all">{link.url}</p>
+                {link.snippet && <p className="text-xs text-neutral-300">{link.snippet}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pictures.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-neutral-200">
+            Pictures ({pictures.length})
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {pictures.map((pic) => {
+              const isDownloading = downloadingId === pic.id;
+              return (
+                <article
+                  key={pic.id}
+                  className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="aspect-video bg-neutral-950 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={pic.previewSrc}
+                      alt={pic.alt}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-100 truncate" title={pic.alt}>
+                        {pic.alt}
+                      </p>
+                      <p className="text-xs text-neutral-400">
+                        {pic.width > 0 && pic.height > 0 ? `${pic.width} x ${pic.height}px` : pic.sourceLabel || "Picture"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isDownloading}
+                      onClick={() => handleDownload(pic)}
+                      className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium transition cursor-pointer"
+                    >
+                      {isDownloading ? "Downloading..." : "Download"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+/* ADMIN_CHROME_TOOL_END */
