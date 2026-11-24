@@ -30,38 +30,48 @@ export async function GET(req: NextRequest) {
   try {
     // 1. Brave Search API (Web + Images)
     if (braveKey) {
+      const headers = {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        'X-Subscription-Token': braveKey,
+      };
+
       const [webRes, imgRes] = await Promise.all([
         fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10`, {
-          headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' },
-          cache: 'no-store',
+          headers,
         }),
-        fetch(`https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(query)}&count=20`, {
-          headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' },
-          cache: 'no-store',
+        fetch(`https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(query)}&count=20&safesearch=off`, {
+          headers,
         }),
       ]);
 
       if (!webRes.ok && !imgRes.ok) {
+        const errText = await (webRes.ok ? imgRes : webRes).text().catch(() => '');
         return NextResponse.json(
-          { error: `Brave Search API returned ${webRes.status || imgRes.status}. Check BRAVE_SEARCH_API_KEY.`, results: [], webResults: [], provider: 'Brave' },
-          { status: 502 }
+          {
+            error: `Brave Search API returned ${webRes.status || imgRes.status}. ${errText.slice(0, 200)}`.trim(),
+            results: [],
+            webResults: [],
+            provider: 'Brave',
+          },
+          { status: webRes.status || imgRes.status || 502 }
         );
       }
 
       const webJson = webRes.ok ? await webRes.json() : {};
       const imgJson = imgRes.ok ? await imgRes.json() : {};
 
-      const webResults: WebSearchLink[] = (Array.isArray(webJson?.web?.results) ? webJson.web.results : []).map(
-        (item: Record<string, unknown>, idx: number) => ({
+      const webResults: WebSearchLink[] = (Array.isArray(webJson?.web?.results) ? webJson.web.results : [])
+        .map((item: Record<string, unknown>, idx: number) => ({
           id: `brave-web-${idx}`,
           title: String(item.title || item.url || `Result ${idx + 1}`),
           url: String(item.url || ''),
           snippet: String(item.description || ''),
-        })
-      ).filter((r: WebSearchLink) => Boolean(r.url));
+        }))
+        .filter((r: WebSearchLink) => Boolean(r.url));
 
       const results: WebImageResult[] = (Array.isArray(imgJson?.results) ? imgJson.results : [])
-        .map((item: Record<string, unknown>, idx: number) => {
+        .map((item: Record<string, unknown>, idx: number): WebImageResult | null => {
           const props = (item.properties as Record<string, unknown>) || {};
           const thumb = (item.thumbnail as Record<string, unknown>) || {};
           const imageUrl = String(props.url || item.url || thumb.src || '');
@@ -84,17 +94,14 @@ export async function GET(req: NextRequest) {
     // 2. SerpApi (Google Web + Google Images)
     if (serpApiKey) {
       const [webRes, imgRes] = await Promise.all([
-        fetch(`https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(serpApiKey)}`, {
-          cache: 'no-store',
-        }),
-        fetch(`https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(serpApiKey)}`, {
-          cache: 'no-store',
-        }),
+        fetch(`https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(serpApiKey)}`),
+        fetch(`https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(serpApiKey)}`),
       ]);
 
       if (!webRes.ok && !imgRes.ok) {
+        const errText = await (webRes.ok ? imgRes : webRes).text().catch(() => '');
         return NextResponse.json(
-          { error: `SerpApi returned ${webRes.status || imgRes.status}. Check SERPAPI_KEY.`, results: [], webResults: [], provider: 'SerpApi' },
+          { error: `SerpApi returned ${webRes.status || imgRes.status}. ${errText.slice(0, 200)}`.trim(), results: [], webResults: [], provider: 'SerpApi' },
           { status: 502 }
         );
       }
@@ -133,13 +140,11 @@ export async function GET(req: NextRequest) {
           method: 'POST',
           headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({ q: query, num: 20 }),
-          cache: 'no-store',
         }),
         fetch('https://google.serper.dev/search', {
           method: 'POST',
           headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({ q: query, num: 10 }),
-          cache: 'no-store',
         }),
       ]);
 
@@ -147,7 +152,7 @@ export async function GET(req: NextRequest) {
         const errBody = await (imgRes.ok ? webRes : imgRes).text().catch(() => '');
         return NextResponse.json(
           {
-            error: `Google search API returned ${imgRes.status || webRes.status}. Check SERPER_API_KEY.${errBody ? ` Details: ${errBody.slice(0, 140)}` : ''}`,
+            error: `Google search API returned ${imgRes.status || webRes.status}. ${errBody.slice(0, 180)}`.trim(),
             results: [],
             webResults: [],
             provider: 'Google',
