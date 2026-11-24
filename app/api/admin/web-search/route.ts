@@ -21,6 +21,17 @@ export interface WebImageResult {
   height: number;
 }
 
+export interface SearchInfoSummary {
+  query: string;
+  mode: 'url' | 'search';
+  targetUrl: string;
+  provider: string;
+  pictureCount: number;
+  optionCount: number;
+  pageTitle?: string;
+  description?: string;
+}
+
 const REQUEST_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -30,7 +41,7 @@ const CHROMIUM_PACK_URL =
 
 function normalizeTargetUrl(raw: string): string | null {
   const trimmed = raw.trim();
-  if (!trimmed) return null;
+  if (!trimmed || /\s/.test(trimmed)) return null;
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       return new URL(trimmed).toString();
@@ -56,9 +67,49 @@ function isPictureUrl(url: string): boolean {
   return true;
 }
 
+function buildInformationOptions(query: string, directUrl: string | null): WebSearchLink[] {
+  const encoded = encodeURIComponent(query);
+  const options: WebSearchLink[] = [];
+  if (directUrl) {
+    options.push({
+      id: 'info-page',
+      title: `Target Webpage: ${directUrl}`,
+      url: directUrl,
+      snippet: 'Full webpage URL resolved for inspection and picture extraction.',
+    });
+  }
+  options.push(
+    {
+      id: 'info-google-web',
+      title: `Google Web Search: ${query}`,
+      url: `https://www.google.com/search?q=${encoded}`,
+      snippet: 'General web results, articles, and reference pages for this query.',
+    },
+    {
+      id: 'info-google-images',
+      title: `Google Images Index: ${query}`,
+      url: `https://www.google.com/search?tbm=isch&q=${encoded}`,
+      snippet: 'Visual index view on Google Images.',
+    },
+    {
+      id: 'info-commons',
+      title: `Wikimedia Commons Media: ${query}`,
+      url: `https://commons.wikimedia.org/w/index.php?search=${encoded}&title=Special:MediaSearch&type=image`,
+      snippet: 'Open-licensed media repository search page.',
+    },
+    {
+      id: 'info-openverse',
+      title: `Openverse Catalog: ${query}`,
+      url: `https://openverse.org/search/image?q=${encoded}`,
+      snippet: 'Public creative commons image catalog.',
+    }
+  );
+  return options;
+}
+
 async function searchPexelsImages(query: string, apiKey: string): Promise<WebImageResult[]> {
   const res = await fetch(
-    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=24`,
+    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=36`,
     { headers: { Authorization: apiKey, Accept: 'application/json' }, cache: 'no-store' }
   );
   if (!res.ok) throw new Error(`Pexels API returned ${res.status}`);
@@ -87,7 +138,7 @@ async function searchOpenverseImages(query: string): Promise<WebImageResult[]> {
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=24`,
+      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=36`,
       { headers: { Accept: 'application/json', 'User-Agent': REQUEST_UA }, signal: controller.signal, cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`Openverse API returned ${res.status}`);
@@ -124,7 +175,7 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
       generator: 'search',
       gsrsearch: query,
       gsrnamespace: '6',
-      gsrlimit: '24',
+      gsrlimit: '36',
       prop: 'imageinfo',
       iiprop: 'url|size|mime',
       iiurlwidth: '800',
@@ -132,11 +183,13 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
     const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params.toString()}`, {
       headers: { Accept: 'application/json', 'User-Agent': REQUEST_UA },
       signal: controller.signal,
-      cache: 'no-store'
+      cache: 'no-store',
     });
     if (!res.ok) throw new Error(`Wikimedia Commons API returned ${res.status}`);
     const data = await res.json();
-    const pages = data?.query?.pages ? Object.values(data.query.pages as Record<string, Record<string, unknown>>) : [];
+    const pages = data?.query?.pages
+      ? Object.values(data.query.pages as Record<string, Record<string, unknown>>)
+      : [];
     return pages
       .map((page, idx): WebImageResult | null => {
         const infos = Array.isArray(page.imageinfo) ? (page.imageinfo as Record<string, unknown>[]) : [];
@@ -145,7 +198,9 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
         if (!mime.startsWith('image/') || mime === 'image/svg+xml') return null;
         const imageUrl = String(info.url || '');
         if (!isPictureUrl(imageUrl)) return null;
-        const rawTitle = String(page.title || `Picture ${idx + 1}`).replace(/^File:/i, '').replace(/\.[^.]+$/, '');
+        const rawTitle = String(page.title || `Picture ${idx + 1}`)
+          .replace(/^File:/i, '')
+          .replace(/\.[^.]+$/, '');
         return {
           id: `commons-${String(page.pageid ?? idx)}`,
           title: rawTitle,
@@ -162,8 +217,14 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
   }
 }
 
-async function scrapePicturesWithChromium(queryOrUrl: string): Promise<{ results: WebImageResult[]; openedUrl: string }> {
-  const executablePath = process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath(CHROMIUM_PACK_URL));
+async function inspectPageWithChromium(queryOrUrl: string): Promise<{
+  results: WebImageResult[];
+  openedUrl: string;
+  pageTitle: string;
+  description: string;
+}> {
+  const executablePath =
+    process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath(CHROMIUM_PACK_URL));
   const browser = await puppeteer.launch({ args: chromium.args, executablePath, headless: true });
   try {
     const page = await browser.newPage();
@@ -177,9 +238,24 @@ async function scrapePicturesWithChromium(queryOrUrl: string): Promise<{ results
 
     await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 25000 });
 
+    const pageMeta = await page.evaluate(() => {
+      const title = document.title || '';
+      const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+      const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 280);
+      return { title, description: metaDesc || bodyText };
+    });
+
     const scraped = await page.evaluate(() => {
       const seen = new Set<string>();
-      const out: Array<{ id: string; title: string; imageUrl: string; thumbnailUrl: string; sourceUrl: string; width: number; height: number }> = [];
+      const out: Array<{
+        id: string;
+        title: string;
+        imageUrl: string;
+        thumbnailUrl: string;
+        sourceUrl: string;
+        width: number;
+        height: number;
+      }> = [];
       for (const img of Array.from(document.querySelectorAll('img'))) {
         const src = img.currentSrc || img.getAttribute('data-src') || img.getAttribute('src') || '';
         if (!src || !/^https?:\/\//i.test(src)) continue;
@@ -204,7 +280,12 @@ async function scrapePicturesWithChromium(queryOrUrl: string): Promise<{ results
       return out;
     });
 
-    return { results: scraped.slice(0, 30), openedUrl: targetUrl };
+    return {
+      results: scraped.slice(0, 40),
+      openedUrl: targetUrl,
+      pageTitle: pageMeta.title,
+      description: pageMeta.description,
+    };
   } finally {
     await browser.close();
   }
@@ -215,45 +296,121 @@ export async function GET(req: NextRequest) {
   if (!query) return NextResponse.json({ results: [], webResults: [], provider: 'None' });
 
   const directUrl = normalizeTargetUrl(query);
+  const webResults = buildInformationOptions(query, directUrl);
+
   if (directUrl) {
     try {
-      const { results, openedUrl } = await scrapePicturesWithChromium(directUrl);
-      return NextResponse.json({ results, webResults: [], provider: 'Headless Chromium', openedUrl });
+      const { results, openedUrl, pageTitle, description } = await inspectPageWithChromium(directUrl);
+      const info: SearchInfoSummary = {
+        query,
+        mode: 'url',
+        targetUrl: openedUrl,
+        provider: 'Headless Chromium',
+        pictureCount: results.length,
+        optionCount: webResults.length,
+        pageTitle,
+        description,
+      };
+      return NextResponse.json({ results, webResults, info, provider: 'Headless Chromium', openedUrl });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to open page in Chromium';
-      return NextResponse.json({ error: msg, results: [], webResults: [], provider: 'Error' }, { status: 502 });
+      return NextResponse.json(
+        { error: msg, results: [], webResults, provider: 'Error' },
+        { status: 502 }
+      );
     }
   }
 
   const pexelsKey = process.env.PEXELS_API_KEY?.trim();
   const warnings: string[] = [];
+  const collected: WebImageResult[] = [];
+  const seenUrls = new Set<string>();
+  const providersUsed: string[] = [];
+
+  const addResults = (items: WebImageResult[], providerName: string) => {
+    let added = 0;
+    for (const item of items) {
+      if (!seenUrls.has(item.imageUrl)) {
+        seenUrls.add(item.imageUrl);
+        collected.push(item);
+        added += 1;
+      }
+      if (collected.length >= 40) break;
+    }
+    if (added > 0 && !providersUsed.includes(providerName)) {
+      providersUsed.push(providerName);
+    }
+  };
 
   if (pexelsKey) {
     try {
-      const results = await searchPexelsImages(query, pexelsKey);
-      if (results.length > 0) return NextResponse.json({ results, webResults: [], provider: 'Pexels' });
-    } catch (err) { warnings.push(err instanceof Error ? err.message : 'Pexels failed'); }
+      addResults(await searchPexelsImages(query, pexelsKey), 'Pexels');
+    } catch (err) {
+      warnings.push(err instanceof Error ? err.message : 'Pexels failed');
+    }
+  }
+
+  if (collected.length < 24) {
+    try {
+      addResults(await searchOpenverseImages(query), 'Openverse');
+    } catch (err) {
+      warnings.push(err instanceof Error ? err.message : 'Openverse failed');
+    }
+  }
+
+  if (collected.length < 24) {
+    try {
+      addResults(await searchWikimediaCommonsImages(query), 'Wikimedia Commons');
+    } catch (err) {
+      warnings.push(err instanceof Error ? err.message : 'Wikimedia Commons failed');
+    }
+  }
+
+  if (collected.length > 0) {
+    const provider = providersUsed.join(' + ') || 'Pictures';
+    const info: SearchInfoSummary = {
+      query,
+      mode: 'search',
+      targetUrl: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+      provider,
+      pictureCount: collected.length,
+      optionCount: webResults.length,
+      description: `Search information, source options, and ${collected.length} matched pictures for "${query}".`,
+    };
+    return NextResponse.json({
+      results: collected,
+      webResults,
+      info,
+      provider,
+      ...(warnings.length ? { warning: warnings.join(' | ') } : {}),
+    });
   }
 
   try {
-    const results = await searchOpenverseImages(query);
-    if (results.length > 0) {
-      return NextResponse.json({ results, webResults: [], provider: 'Openverse', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
-    }
-  } catch (err) { warnings.push(err instanceof Error ? err.message : 'Openverse failed'); }
-
-  try {
-    const results = await searchWikimediaCommonsImages(query);
-    if (results.length > 0) {
-      return NextResponse.json({ results, webResults: [], provider: 'Wikimedia Commons', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
-    }
-  } catch (err) { warnings.push(err instanceof Error ? err.message : 'Wikimedia Commons failed'); }
-
-  try {
-    const { results, openedUrl } = await scrapePicturesWithChromium(query);
-    return NextResponse.json({ results, webResults: [], provider: 'Headless Chromium', openedUrl, ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    const { results, openedUrl, pageTitle, description } = await inspectPageWithChromium(query);
+    const info: SearchInfoSummary = {
+      query,
+      mode: 'search',
+      targetUrl: openedUrl,
+      provider: 'Headless Chromium',
+      pictureCount: results.length,
+      optionCount: webResults.length,
+      pageTitle,
+      description,
+    };
+    return NextResponse.json({
+      results,
+      webResults,
+      info,
+      provider: 'Headless Chromium',
+      openedUrl,
+      ...(warnings.length ? { warning: warnings.join(' | ') } : {}),
+    });
   } catch (err) {
     warnings.push(err instanceof Error ? err.message : 'Headless Chromium failed');
-    return NextResponse.json({ error: warnings.join(' | '), results: [], webResults: [], provider: 'Error' }, { status: 502 });
+    return NextResponse.json(
+      { error: warnings.join(' | '), results: [], webResults, provider: 'Error' },
+      { status: 502 }
+    );
   }
 }
