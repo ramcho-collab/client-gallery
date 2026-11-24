@@ -28,9 +28,37 @@ const CHROMIUM_PACK_URL =
   process.env.CHROMIUM_REMOTE_EXEC_PATH ||
   'https://github.com/Sparticuz/chromium/releases/latest/download/chromium-v133.0.0-pack.tar';
 
+function normalizeTargetUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      return new URL(trimmed).toString();
+    } catch {
+      return null;
+    }
+  }
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(trimmed)) {
+    try {
+      return new URL(`https://${trimmed}`).toString();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function isPictureUrl(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  const lower = url.toLowerCase();
+  if (lower.endsWith('.svg') || lower.includes('.svg?')) return false;
+  if (lower.includes('/static/images/') || lower.includes('favicon')) return false;
+  return true;
+}
+
 async function searchPexelsImages(query: string, apiKey: string): Promise<WebImageResult[]> {
   const res = await fetch(
-    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=20`,
+    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=24`,
     { headers: { Authorization: apiKey, Accept: 'application/json' }, cache: 'no-store' }
   );
   if (!res.ok) throw new Error(`Pexels API returned ${res.status}`);
@@ -40,10 +68,10 @@ async function searchPexelsImages(query: string, apiKey: string): Promise<WebIma
     .map((photo: Record<string, unknown>, idx: number): WebImageResult | null => {
       const src = (photo.src as Record<string, unknown>) || {};
       const imageUrl = String(src.large2x || src.large || src.original || src.medium || '');
-      if (!imageUrl) return null;
+      if (!isPictureUrl(imageUrl)) return null;
       return {
         id: `pexels-${String(photo.id ?? idx)}`,
-        title: String(photo.alt || `Photo ${idx + 1}`),
+        title: String(photo.alt || `Picture ${idx + 1}`),
         imageUrl,
         thumbnailUrl: String(src.medium || src.small || imageUrl),
         sourceUrl: String(photo.url || imageUrl),
@@ -59,7 +87,7 @@ async function searchOpenverseImages(query: string): Promise<WebImageResult[]> {
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=20`,
+      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=24`,
       { headers: { Accept: 'application/json', 'User-Agent': REQUEST_UA }, signal: controller.signal, cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`Openverse API returned ${res.status}`);
@@ -68,10 +96,10 @@ async function searchOpenverseImages(query: string): Promise<WebImageResult[]> {
     return items
       .map((item: Record<string, unknown>, idx: number): WebImageResult | null => {
         const imageUrl = String(item.url || '');
-        if (!imageUrl) return null;
+        if (!isPictureUrl(imageUrl)) return null;
         return {
           id: `openverse-${String(item.id ?? idx)}`,
-          title: String(item.title || `Image ${idx + 1}`),
+          title: String(item.title || `Picture ${idx + 1}`),
           imageUrl,
           thumbnailUrl: String(item.thumbnail || imageUrl),
           sourceUrl: String(item.foreign_landing_url || item.url || imageUrl),
@@ -96,7 +124,7 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
       generator: 'search',
       gsrsearch: query,
       gsrnamespace: '6',
-      gsrlimit: '20',
+      gsrlimit: '24',
       prop: 'imageinfo',
       iiprop: 'url|size|mime',
       iiurlwidth: '800',
@@ -116,8 +144,8 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
         const mime = String(info.mime || '');
         if (!mime.startsWith('image/') || mime === 'image/svg+xml') return null;
         const imageUrl = String(info.url || '');
-        if (!imageUrl) return null;
-        const rawTitle = String(page.title || `Image ${idx + 1}`).replace(/^File:/i, '').replace(/\.[^.]+$/, '');
+        if (!isPictureUrl(imageUrl)) return null;
+        const rawTitle = String(page.title || `Picture ${idx + 1}`).replace(/^File:/i, '').replace(/\.[^.]+$/, '');
         return {
           id: `commons-${String(page.pageid ?? idx)}`,
           title: rawTitle,
@@ -134,25 +162,49 @@ async function searchWikimediaCommonsImages(query: string): Promise<WebImageResu
   }
 }
 
-async function searchWithHeadlessChromium(query: string): Promise<WebImageResult[]> {
+async function scrapePicturesWithChromium(queryOrUrl: string): Promise<{ results: WebImageResult[]; openedUrl: string }> {
   const executablePath = process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath(CHROMIUM_PACK_URL));
   const browser = await puppeteer.launch({ args: chromium.args, executablePath, headless: true });
   try {
     const page = await browser.newPage();
     await page.setUserAgent(REQUEST_UA);
-    await page.setViewport({ width: 1280, height: 800 });
-    const targetUrl = `https://commons.wikimedia.org/w/index.php?search=${encodeURIComponent(query)}&title=Special:MediaSearch&type=image`;
+    await page.setViewport({ width: 1366, height: 900 });
+
+    const directUrl = normalizeTargetUrl(queryOrUrl);
+    const targetUrl =
+      directUrl ||
+      `https://commons.wikimedia.org/w/index.php?search=${encodeURIComponent(queryOrUrl)}&title=Special:MediaSearch&type=image`;
+
     await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 25000 });
+
     const scraped = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('img'))
-        .map((img, idx) => {
-          const src = img.getAttribute('src') || '';
-          const alt = img.getAttribute('alt') || `Image ${idx + 1}`;
-          return { id: `chrome-${idx}`, title: alt.trim() || `Image ${idx + 1}`, imageUrl: src, thumbnailUrl: src, sourceUrl: window.location.href, width: img.naturalWidth || 0, height: img.naturalHeight || 0 };
-        })
-        .filter((item) => item.imageUrl.startsWith('http') && !item.imageUrl.includes('/static/images/') && !item.imageUrl.endsWith('.svg'));
+      const seen = new Set<string>();
+      const out: Array<{ id: string; title: string; imageUrl: string; thumbnailUrl: string; sourceUrl: string; width: number; height: number }> = [];
+      for (const img of Array.from(document.querySelectorAll('img'))) {
+        const src = img.currentSrc || img.getAttribute('data-src') || img.getAttribute('src') || '';
+        if (!src || !/^https?:\/\//i.test(src)) continue;
+        const lower = src.toLowerCase();
+        if (lower.endsWith('.svg') || lower.includes('.svg?') || lower.includes('favicon')) continue;
+        const w = img.naturalWidth || Number(img.getAttribute('width')) || 0;
+        const h = img.naturalHeight || Number(img.getAttribute('height')) || 0;
+        if ((w > 0 && w < 80) || (h > 0 && h < 80)) continue;
+        if (seen.has(src)) continue;
+        seen.add(src);
+        const alt = (img.getAttribute('alt') || img.getAttribute('title') || `Picture ${out.length + 1}`).trim();
+        out.push({
+          id: `chrome-pic-${out.length}`,
+          title: alt || `Picture ${out.length + 1}`,
+          imageUrl: src,
+          thumbnailUrl: src,
+          sourceUrl: window.location.href,
+          width: w,
+          height: h,
+        });
+      }
+      return out;
     });
-    return scraped.slice(0, 20);
+
+    return { results: scraped.slice(0, 30), openedUrl: targetUrl };
   } finally {
     await browser.close();
   }
@@ -161,25 +213,45 @@ async function searchWithHeadlessChromium(query: string): Promise<WebImageResult
 export async function GET(req: NextRequest) {
   const query = (req.nextUrl.searchParams.get('q') || '').trim();
   if (!query) return NextResponse.json({ results: [], webResults: [], provider: 'None' });
+
+  const directUrl = normalizeTargetUrl(query);
+  if (directUrl) {
+    try {
+      const { results, openedUrl } = await scrapePicturesWithChromium(directUrl);
+      return NextResponse.json({ results, webResults: [], provider: 'Headless Chromium', openedUrl });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to open page in Chromium';
+      return NextResponse.json({ error: msg, results: [], webResults: [], provider: 'Error' }, { status: 502 });
+    }
+  }
+
   const pexelsKey = process.env.PEXELS_API_KEY?.trim();
   const warnings: string[] = [];
+
   if (pexelsKey) {
     try {
       const results = await searchPexelsImages(query, pexelsKey);
       if (results.length > 0) return NextResponse.json({ results, webResults: [], provider: 'Pexels' });
     } catch (err) { warnings.push(err instanceof Error ? err.message : 'Pexels failed'); }
   }
+
   try {
     const results = await searchOpenverseImages(query);
-    if (results.length > 0) return NextResponse.json({ results, webResults: [], provider: 'Openverse', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    if (results.length > 0) {
+      return NextResponse.json({ results, webResults: [], provider: 'Openverse', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    }
   } catch (err) { warnings.push(err instanceof Error ? err.message : 'Openverse failed'); }
+
   try {
     const results = await searchWikimediaCommonsImages(query);
-    if (results.length > 0) return NextResponse.json({ results, webResults: [], provider: 'Wikimedia Commons', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    if (results.length > 0) {
+      return NextResponse.json({ results, webResults: [], provider: 'Wikimedia Commons', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    }
   } catch (err) { warnings.push(err instanceof Error ? err.message : 'Wikimedia Commons failed'); }
+
   try {
-    const results = await searchWithHeadlessChromium(query);
-    return NextResponse.json({ results, webResults: [], provider: 'Headless Chromium', ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
+    const { results, openedUrl } = await scrapePicturesWithChromium(query);
+    return NextResponse.json({ results, webResults: [], provider: 'Headless Chromium', openedUrl, ...(warnings.length ? { warning: warnings.join(' | ') } : {}) });
   } catch (err) {
     warnings.push(err instanceof Error ? err.message : 'Headless Chromium failed');
     return NextResponse.json({ error: warnings.join(' | '), results: [], webResults: [], provider: 'Error' }, { status: 502 });

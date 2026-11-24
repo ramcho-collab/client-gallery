@@ -1,49 +1,46 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
-  const targetUrl = req.nextUrl.searchParams.get('url');
-  const requestedName = req.nextUrl.searchParams.get('filename') || 'downloaded-picture.jpg';
+  const rawUrl = (req.nextUrl.searchParams.get('url') || '').trim();
+  const rawName = (req.nextUrl.searchParams.get('name') || 'picture').trim();
 
-  if (!targetUrl) {
-    return new Response('Missing url parameter', { status: 400 });
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(targetUrl);
-  } catch {
-    return new Response('Invalid image URL', { status: 400 });
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return new Response('Unsupported protocol', { status: 400 });
+  if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+    return NextResponse.json({ error: 'Invalid picture URL' }, { status: 400 });
   }
 
   try {
-    const upstream = await fetch(parsed.toString(), {
+    const upstream = await fetch(rawUrl, {
       headers: {
-        'User-Agent': 'ClientGalleryAdmin/1.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'image/*,*/*;q=0.8',
       },
       cache: 'no-store',
     });
 
     if (!upstream.ok) {
-      return new Response(`Upstream image returned ${upstream.status}`, { status: 502 });
+      return NextResponse.json({ error: `Failed to fetch picture: ${upstream.status}` }, { status: 502 });
     }
 
-    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    const safeFilename = requestedName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const buffer = await upstream.arrayBuffer();
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    if (!contentType.startsWith('image/')) {
+      return NextResponse.json({ error: 'URL did not return a picture' }, { status: 400 });
+    }
 
-    return new Response(buffer, {
+    const extFromMime = contentType.split('/')[1]?.split(';')[0]?.replace(/[^a-z0-9]/gi, '') || 'jpg';
+    const safeBase = rawName.replace(/[^a-z0-9-_]+/gi, '_').replace(/^_+|_+$/g, '') || 'picture';
+    const filename = safeBase.toLowerCase().endsWith(`.${extFromMime.toLowerCase()}`) ? safeBase : `${safeBase}.${extFromMime}`;
+
+    const buffer = await upstream.arrayBuffer();
+    return new NextResponse(buffer, {
+      status: 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${safeFilename}"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-store',
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch image';
-    return new Response(message, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Download error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
